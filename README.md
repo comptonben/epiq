@@ -68,3 +68,11 @@ make
 ``` console 
 ./test/tmp125_driver_test
 ```
+
+## Resources
+ - https://thispointer.com/c-11-multithreading-part-1-three-different-ways-to-create-threads/
+ - https://stackoverflow.com/questions/268680/how-can-i-monitor-the-thread-count-of-a-process-on-linux
+ - https://stackoverflow.com/questions/51776246/curl-post-request-in-c
+ - https://gist.github.com/Cartexius/4c437c084d6e388288201aadf9c8cdd5
+ - https://raymii.org/s/tutorials/Cpp_project_setup_with_cmake_and_unit_tests.html
+ - https://www.markdownguide.org/basic-syntax/
