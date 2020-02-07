@@ -56,6 +56,8 @@ make
 ./PTM
 ```
 
+ - To view the published alarms visit https://epiq-code-challenge.000webhostapp.com/api/read-alarms.php
+
 ### TMP125 Driver
  - Build challenge part (from same directory where you pulled from git):
 ``` console
