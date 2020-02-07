@@ -113,10 +113,8 @@ out:
 /* Description: Convert binary data from sensor to float value
    Parameters: pin_state-array of integer data, p_temp_in_degrees_c-apointerto a float
                where the temperature will be written
-   Returns: int32_t indicating status (0=success, any other value indicates an error code) */
+   Returns: None */
 void convert_binary_to_float(uint8_t pin_state[16], float* p_temp_in_degrees_c) {
-    uint32_t status = 0;
-
     uint8_t sign = pin_state[0];
     uint8_t i;
     int8_t exp = 7;

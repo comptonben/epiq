@@ -12,28 +12,46 @@
 int main(int argc, char* argv[]) {
     dump_header();
     
-    interval_interrupt(check_temps, 500);
-    return(0);
+    uint8_t status = 0;
+    status = interval_interrupt(check_temps, 500);
+
+    return(status);
 }
 
+/* Description: Output platform temperature manager header
+   Parameters: None
+   Returns: None */
 void dump_header() {
     std::string welcome = "Starting Temperature Management Application\n";
     std::cout << welcome << std::string(welcome.length(),'=') << std::endl << std::endl;
 }
 
-void interval_interrupt(std::function<void(void)> func, int interval) {
-    std::thread t([func, interval]() {
+/* Description: Spawn an interval based thread to check temperature sensor
+                for current alarming temoerature readings
+   Parameters: func-a function pointer to check temperatures, interval-interval
+               in which to call temperature checking function
+   Returns: int32_t indicating status (0=success, any other value indicates an error code) */
+int32_t interval_interrupt(std::function<int32_t(void)> func, int interval) {
+    int32_t status = 0;
+    std::thread t([func, interval, &status]() {
         while(true) {
             auto x = std::chrono::steady_clock::now() + std::chrono::milliseconds(interval);
-            func();
+            if((status = func()) != 0) break;
             std::this_thread::sleep_until(x);
         }
     });
     t.join();
+    return status;
 }
 
-uint32_t trigger_alarm(int sensor, std::string alarm_code, float temp) {
-    uint32_t status = 0;
+/* Description: trigger alarms for temperatures outside of a standard range or
+                if temperature is checked asynchronously.
+   Parameters: sensor-sensor that triggered alarm (1-4), alarm_code-code that was
+               triggered ("low", "high", "async"), temp-temperature that triggered
+               the alarm
+   Returns: int32_t indicating status (0=success, any other value indicates an error code) */
+int32_t trigger_alarm(int sensor, std::string alarm_code, float temp) {
+    int32_t status = 0;
 
     time_t cur_dt = time(0);
     std::string dt = ctime(&cur_dt);
@@ -50,8 +68,13 @@ out:
     return status;
 }
 
-uint32_t post_alarm(int sensor, std::string alarm_code, float temp, std::string dt) {
-    uint32_t status = 0;
+/* Description: post alarms to online alarms log
+   Parameters: sensor-sensor that triggered alarm (1-4), alarm_code-code that was
+               triggered ("low", "high", "async"), temp-temperature that triggered
+               the alarm, dt-datetime stamp of when alarm was triggered
+   Returns: int32_t indicating status (0=success, any other value indicates an error code) */
+int32_t post_alarm(int sensor, std::string alarm_code, float temp, std::string dt) {
+    int32_t status = 0;
 
     std::stringstream ss;
     ss << "[ALARM - Temperature sensor " << sensor;
@@ -89,8 +112,11 @@ uint32_t post_alarm(int sensor, std::string alarm_code, float temp, std::string 
     return status;
 }
 
-uint32_t check_temps() {
-    uint32_t status = 0;
+/* Description: function to be used as a pointer for interval temperature sensor monitoring
+   Parameters: None
+   Returns: int32_t indicating status (0=success, any other value indicates an error code) */
+int32_t check_temps() {
+    int32_t status = 0;
     float temp;
 
     for(uint8_t i=1; i < 5; i++) {
@@ -113,8 +139,8 @@ out:
    Parameters: temp_sensor_id-the id of the temp sensor to read (from 1 to 4)
                p_temp_in_degrees_c-apointerto a float where the temperature will be written
    Returns: int32_t indicating status (0=success, any other value indicates an error code) */
-uint32_t PTM_read_temp(uint8_t temp_sensor_id, float* p_temp_in_degrees) {
-    uint32_t status = 0;
+int32_t PTM_read_temp(uint8_t temp_sensor_id, float* p_temp_in_degrees) {
+    int32_t status = 0;
     if((status = tmp125_read_temp(temp_sensor_id, p_temp_in_degrees)) != 0) goto out;
     else {
         if(*p_temp_in_degrees < -40.0) trigger_alarm(temp_sensor_id, "low", *p_temp_in_degrees);
@@ -130,7 +156,7 @@ out:
    Parameters: temp_sensor_id-the id of the temp sensor to read (from 1 to 4)
                p_temp_in_degrees_c-apointerto a float where the temperature will be written
    Returns: int32_t indicating status (0=success, any other value indicates an error code) */
-uint32_t tmp125_read_temp(uint8_t temp_sensor_id, float* p_temp_in_degrees_c) {
+int32_t tmp125_read_temp(uint8_t temp_sensor_id, float* p_temp_in_degrees_c) {
     float mock_data[10] = {10.6, -89.3, -32.9, 50.7, 128.9, 12.4, 85.0, -40.0, 85.1, -40.1};
     *p_temp_in_degrees_c = mock_data[rand() % 10];
     return 0;
