@@ -4,8 +4,8 @@
 
 void dump_header();
 void interval_interrupt(std::function<void(void)> func, int interval);
-void print_alarm(int sensor, std::string alarm_code, float temp);
-uint32_t post_alarm(int sensor, float temp, std::string dt);
+uint32_t trigger_alarm(int sensor, std::string alarm_code, float temp);
+uint32_t post_alarm(int sensor, std::string alarm_code, float temp, std::string dt);
 void sig_handler(int signal);
 uint32_t check_temps();
 

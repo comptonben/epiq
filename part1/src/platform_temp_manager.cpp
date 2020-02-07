@@ -2,9 +2,11 @@
 
 #include <chrono>
 #include <cstdint>
+#include <curl/curl.h>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <thread>
 
 int main(int argc, char* argv[]) {
@@ -30,37 +32,60 @@ void interval_interrupt(std::function<void(void)> func, int interval) {
     t.join();
 }
 
-void print_alarm(int sensor, std::string alarm_code, float temp) {
+uint32_t trigger_alarm(int sensor, std::string alarm_code, float temp) {
+    uint32_t status = 0;
+
     time_t cur_dt = time(0);
     std::string dt = ctime(&cur_dt);
+
+    if((status = post_alarm(sensor, alarm_code, temp, dt)) != 0) goto out;
+
     std::cout << "ALARM - Temperature sensor " << sensor;
     if (alarm_code == "low") std::cout << " has a temperature below threshold at: ";
     else if (alarm_code == "high") std::cout << " has a temperature above threshold at: ";
+    else if (alarm_code == "async") std::cout << " has a temperature within threshold at: ";
     std::cout << temp << " C" << std::endl << "|\tAlarm datetime: " << dt << std::endl << std::endl;
+
+out:
+    return status;
 }
 
-void print_temp(int sensor, float temp) {
-    time_t cur_dt = time(0);
-    std::string dt = ctime(&cur_dt);
-    post_alarm(sensor, temp, dt);
-    std::cout << "INFO - Temperature sensor " << sensor << " has a temperature within threshold at: ";
-    std::cout << temp << " C" << std::endl << "|\tAlarm datetime: " << dt << std::endl << std::endl;
-}
-
-uint32_t post_alarm(int sensor, float temp, std::string dt) {
+uint32_t post_alarm(int sensor, std::string alarm_code, float temp, std::string dt) {
     uint32_t status = 0;
+
+    std::stringstream ss;
+    ss << "[ALARM - Temperature sensor " << sensor;
+    if (alarm_code == "low") ss << " has a temperature below threshold at: ";
+    else if (alarm_code == "high") ss << " has a temperature above threshold at: ";
+    else if (alarm_code == "async") ss << " has a temperature within threshold at: ";
+    ss << temp << " C | Alarm datetime: " << dt.substr(0, (dt.length()-1)) << "]\r\n";
+    std::string alarm = ss.str();
 
     CURL *curl;
     CURLcode res;
 
     curl = curl_easy_init();
     if(curl) {
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: text/plain");
+
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_URL, "https://epiq-code-challenge.000webhostapp.com/api/post.php");
+        curl_easy_setopt(curl, CURLOPT_POST, 1);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, alarm.c_str());
+
+        res = curl_easy_perform(curl);
+        if(res) {
+            printf("Error: curl operation failed\r\n");
+            status = -2;
+        }
     }
     else {
+        printf("Error: curl object initialization failed\r\n");
         status = -1;
     }
+    curl_easy_cleanup(curl);
+
     return status;
 }
 
@@ -72,10 +97,10 @@ uint32_t check_temps() {
         if((status = tmp125_read_temp(i, &temp)) != 0) goto out;
         else {
             if(temp < -40.0) {
-                print_alarm(i, "low", temp);
+                trigger_alarm(i, "low", temp);
             }
             else if(temp > 85.0) {
-                print_alarm(i, "high", temp);
+                trigger_alarm(i, "high", temp);
             }
         }
     }
@@ -92,9 +117,9 @@ uint32_t PTM_read_temp(uint8_t temp_sensor_id, float* p_temp_in_degrees) {
     uint32_t status = 0;
     if((status = tmp125_read_temp(temp_sensor_id, p_temp_in_degrees)) != 0) goto out;
     else {
-        if(*p_temp_in_degrees < -40.0) print_alarm(temp_sensor_id, "low", *p_temp_in_degrees);
-        else if(*p_temp_in_degrees > 85.0) print_alarm(temp_sensor_id, "high", *p_temp_in_degrees);
-        else print_temp(temp_sensor_id, *p_temp_in_degrees);
+        if(*p_temp_in_degrees < -40.0) trigger_alarm(temp_sensor_id, "low", *p_temp_in_degrees);
+        else if(*p_temp_in_degrees > 85.0) trigger_alarm(temp_sensor_id, "high", *p_temp_in_degrees);
+        else trigger_alarm(temp_sensor_id, "async", *p_temp_in_degrees);
     }
 
 out:
